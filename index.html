@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>🌙 Cartoon Moon Phase Explorer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --my: #FFE566; --mg: #F5C800; --ms: #C8A200;
+    --sky1: #1a0a5e; --sky2: #0d1a7a; --sky3: #0a2a8a;
+    --wax: #7FFFD4; --wan: #FF9F7F; --lb: rgba(255,255,255,0.10);
+    --fd: 'Fredoka One', cursive; --fb: 'Nunito', sans-serif;
+  }
+  html { height: 100dvh; }
+  body { height: 100%; overflow: hidden; font-family: var(--fb); color: white; margin: 0; }
+  #root { display: flex; flex-direction: column; height: 100%; overflow: hidden; position: relative; }
+
+  /* ── CARTOON SKY ── */
+  .sky-bg {
+    position: fixed; inset: 0; z-index: 0; overflow: hidden;
+    background: linear-gradient(175deg, #0a0535 0%, #1a0a6e 35%, #1a1e9a 65%, #112288 100%);
+  }
+  /* Big bold cartoon clouds */
+  .cloud {
+    position: absolute;
+    background: rgba(180,200,255,0.07);
+    border-radius: 50px;
+    border: 3px solid rgba(180,200,255,0.13);
+    animation: cloudDrift var(--cd, 40s) linear infinite;
+  }
+  .cloud::before, .cloud::after {
+    content:''; position:absolute; background:inherit; border-radius:50%; border: inherit;
+  }
+  @keyframes cloudDrift { from{transform:translateX(-220px)} to{transform:translateX(110vw)} }
+
+  /* Cartoon hills at bottom */
+  .hills {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 1; pointer-events: none;
+  }
+
+  /* Cartoon stars — spiky SVG shapes */
+  .star-field { position: absolute; inset: 0; }
+
+  /* Cartoon Saturn */
+  .saturn {
+    position: absolute; top: 8%; right: 6%;
+    animation: saturnFloat 6s ease-in-out infinite alternate;
+  }
+  @keyframes saturnFloat { from{transform:translateY(0) rotate(-5deg)} to{transform:translateY(-12px) rotate(5deg)} }
+
+  /* Comet */
+  .comet {
+    position: absolute; top: 18%; left: -80px;
+    animation: cometFly 12s linear infinite;
+    animation-delay: 4s;
+    opacity: 0;
+  }
+  @keyframes cometFly {
+    0%  { transform: translate(0,0) rotate(-20deg); opacity:0; }
+    5%  { opacity: 1; }
+    80% { opacity: 1; }
+    100%{ transform: translate(110vw, 30vh) rotate(-20deg); opacity: 0; }
+  }
+
+  /* ── UI CHROME ── */
+  .scroll-area { position:relative; z-index:2; flex:1; min-height:0; overflow-y:scroll; -webkit-overflow-scrolling:touch; padding-bottom:220px; }
+  .inner { display:flex; flex-direction:column; align-items:center; padding:16px 14px 0; gap:12px; }
+
+  .title-row { text-align:center; }
+  .title-row h1 {
+    font-family:var(--fd); font-size:clamp(1.5rem,5.5vw,2.4rem); color:var(--my);
+    text-shadow: 0 4px 0 #7a5200, 0 7px 0 rgba(0,0,0,.4), 0 9px 20px rgba(0,0,0,.5);
+    line-height:1.1; letter-spacing:1px;
+    -webkit-text-stroke: 1.5px #b87c00;
+  }
+  .title-row p { font-size:.82rem; color:rgba(255,255,255,.72); font-weight:800; margin-top:4px; letter-spacing:.6px; }
+
+  /* cartoon panel style for all UI cards */
+  .panel {
+    background: rgba(10,20,100,0.65);
+    border: 3px solid rgba(180,200,255,0.35);
+    border-radius: 20px;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+    backdrop-filter: blur(6px);
+  }
+
+  .hemi-row { display:flex; align-items:center; gap:10px; padding:8px 18px; }
+  .hemi-label { font-weight:900; font-size:.88rem; }
+  .toggle-track { width:60px; height:30px; border-radius:15px; background:#12095a;
+    border:3px solid rgba(180,200,255,.3); position:relative; cursor:pointer; transition:background .3s; min-width:60px; }
+  .toggle-track.on { background:#2a1a90; }
+  .toggle-thumb { position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%;
+    background:radial-gradient(circle at 38% 36%,#fff8c0,var(--my) 55%,var(--mg));
+    border:2px solid var(--mg); box-shadow:0 2px 6px rgba(0,0,0,.5);
+    transition:transform .3s cubic-bezier(.34,1.56,.64,1); font-size:12px; display:flex; align-items:center; justify-content:center; }
+  .toggle-track.on .toggle-thumb { transform:translateX(28px); }
+
+  .badge-row { display:flex; gap:10px; width:100%; max-width:480px; justify-content:center; }
+  .pbadge { flex:1; border-radius:16px; padding:8px 10px; text-align:center;
+    font-family:var(--fd); font-size:clamp(.9rem,3vw,1.15rem);
+    border:3px solid transparent; transition:all .35s ease; opacity:.4;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.4); }
+  .pbadge.wax { background:rgba(40,120,90,.35); border-color:rgba(127,255,212,.3); color:var(--wax); }
+  .pbadge.wan { background:rgba(120,60,30,.35); border-color:rgba(255,159,127,.3); color:var(--wan); }
+  .pbadge.on { opacity:1; transform:scale(1.06) translateY(-2px); }
+  .pbadge.wax.on { background:rgba(40,140,100,.55); border-color:var(--wax); box-shadow:0 4px 0 #1a4a30, 0 0 18px rgba(127,255,212,.3); }
+  .pbadge.wan.on { background:rgba(140,60,30,.55); border-color:var(--wan); box-shadow:0 4px 0 #5a2010, 0 0 18px rgba(255,159,127,.3); }
+  .bsub { font-size:.68em; font-family:var(--fb); font-weight:900; opacity:.85; display:block; }
+
+  /* Moon */
+  .moon-stage { display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; max-width:420px; }
+  .moon-name { font-family:var(--fd); font-size:clamp(1.2rem,4.5vw,1.85rem);
+    text-shadow:0 3px 0 #3a2070, 0 5px 14px rgba(0,0,0,.6);
+    -webkit-text-stroke:1px rgba(180,200,255,.25);
+    text-align:center; min-height:1.9rem; transition:all .4s; }
+  .moon-wrap { position:relative; width:clamp(155px,42vw,240px); height:clamp(155px,42vw,240px);
+    display:flex; align-items:center; justify-content:center; }
+  .moon-glow { position:absolute; inset:-25%; border-radius:50%;
+    background:radial-gradient(circle,rgba(255,229,102,.25) 0%,transparent 65%);
+    animation:mpulse 3s ease-in-out infinite alternate; transition:opacity .5s; }
+  @keyframes mpulse { from{transform:scale(.93)} to{transform:scale(1.07)} }
+  .moon-svg { width:100%; height:100%; }
+  .phase-desc { padding:10px 18px; text-align:center; font-size:clamp(.86rem,2.5vw,.98rem);
+    font-weight:800; max-width:370px; line-height:1.45; }
+
+  /* Illum bar */
+  .illum-row { display:flex; flex-direction:column; align-items:center; gap:5px; width:100%; max-width:370px; }
+  .illum-lbl { color:rgba(255,255,255,.65); font-size:.76rem; font-weight:900; text-transform:uppercase; letter-spacing:1px; }
+  .illum-outer { width:100%; height:18px; background:rgba(0,0,40,.5); border-radius:9px;
+    border:3px solid rgba(180,200,255,.2); overflow:hidden; box-shadow:inset 0 2px 4px rgba(0,0,0,.4); }
+  .illum-inner { height:100%; border-radius:9px; background:linear-gradient(90deg,var(--mg),var(--my),#fffaaa);
+    transition:width .5s cubic-bezier(.34,1.2,.64,1); box-shadow:0 0 12px rgba(255,220,0,.5); }
+  .illum-pct { font-family:var(--fd); font-size:.95rem; color:var(--my); text-shadow:0 2px 0 #6a4000; }
+
+  /* Slider */
+  .slider-sec { width:100%; max-width:420px; display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .slider-hint { color:rgba(255,255,255,.6); font-size:.78rem; font-weight:900; text-transform:uppercase; letter-spacing:1px; }
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:12px; border-radius:6px;
+    background:linear-gradient(90deg,rgba(20,40,160,.6),rgba(60,100,255,.3));
+    border:3px solid rgba(180,200,255,.25); outline:none; cursor:pointer;
+    box-shadow:inset 0 2px 4px rgba(0,0,0,.4); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:40px; height:40px; border-radius:50%;
+    background:radial-gradient(circle at 38% 36%,#fffcdd,var(--my) 50%,var(--mg));
+    border:4px solid #a06800; box-shadow:0 3px 0 #6a4000,0 5px 12px rgba(0,0,0,.5); cursor:pointer; transition:transform .15s; }
+  input[type=range]::-webkit-slider-thumb:active { transform:scale(1.25) rotate(15deg); }
+  input[type=range]::-moz-range-thumb { width:40px; height:40px; border-radius:50%; background:var(--my); border:4px solid #a06800; cursor:pointer; }
+
+  /* Phase dots */
+  .phase-dots { display:flex; gap:7px; justify-content:center; flex-wrap:wrap; }
+  .pdot { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:50px; min-height:50px;
+    padding:6px 4px; background:rgba(10,20,100,.55); border:3px solid rgba(180,200,255,.18); border-radius:14px;
+    cursor:pointer; transition:all .22s; color:rgba(255,255,255,.5); font-size:.58rem; font-weight:900;
+    text-align:center; font-family:var(--fb); box-shadow:0 3px 0 rgba(0,0,0,.4); }
+  .pdot:hover { background:rgba(60,80,200,.55); border-color:rgba(255,229,102,.5); color:white; transform:translateY(-2px); }
+  .pdot.on { background:rgba(80,60,10,.7); border-color:var(--my); color:var(--my);
+    box-shadow:0 4px 0 #5a4000, 0 0 14px rgba(255,229,102,.3); transform:translateY(-3px); }
+  .pdot-ic { font-size:1.4rem; line-height:1; }
+
+  /* Tabs */
+  .tabs { display:flex; gap:8px; width:100%; max-width:480px; }
+  .tab-btn { flex:1; min-height:50px; border-radius:14px;
+    border:3px solid rgba(180,200,255,.2); background:rgba(10,20,100,.55);
+    color:rgba(255,255,255,.6); font-family:var(--fd); font-size:clamp(.85rem,3vw,1rem);
+    cursor:pointer; transition:all .25s; box-shadow:0 4px 0 rgba(0,0,0,.4); }
+  .tab-btn:hover { transform:translateY(-2px); border-color:rgba(255,229,102,.4); color:white; }
+  .tab-btn.on { background:rgba(80,60,10,.75); border-color:var(--my); color:var(--my);
+    box-shadow:0 4px 0 #5a4000; transform:translateY(-2px); }
+
+  /* Fact card */
+  .fact-card { padding:14px 18px; width:100%; max-width:480px; }
+  .fact-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+  .fact-item { background:rgba(255,255,255,.07); border:2px solid rgba(180,200,255,.15); border-radius:12px;
+    padding:10px 12px; text-align:center; box-shadow:inset 0 1px 0 rgba(255,255,255,.05); }
+  .fact-icon { font-size:1.5rem; line-height:1; display:block; margin-bottom:4px; }
+  .fact-val { font-family:var(--fd); font-size:1rem; color:var(--my); display:block; text-shadow:0 2px 0 #6a4000; }
+  .fact-lbl { font-size:.68rem; font-weight:900; color:rgba(255,255,255,.5); text-transform:uppercase; letter-spacing:.8px; }
+  .fact-title { font-family:var(--fd); font-size:1.1rem; color:var(--my); margin-bottom:4px; text-shadow:0 2px 0 #6a4000; }
+  .fact-body { font-size:.83rem; font-weight:800; color:rgba(255,255,255,.78); line-height:1.45; }
+
+  /* Quiz */
+  .quiz-card { padding:16px 18px; width:100%; max-width:480px; display:flex; flex-direction:column; gap:12px; }
+  .quiz-q { font-family:var(--fd); font-size:clamp(1rem,3.5vw,1.25rem); line-height:1.3; text-align:center;
+    text-shadow:0 2px 6px rgba(0,0,0,.5); }
+  .quiz-opts { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+  .quiz-opt { min-height:58px; border-radius:14px; border:3px solid rgba(180,200,255,.2);
+    background:rgba(20,30,120,.6); color:white; font-family:var(--fd); font-size:.92rem;
+    cursor:pointer; transition:all .2s; padding:8px 10px; line-height:1.2;
+    box-shadow:0 4px 0 rgba(0,0,0,.45); }
+  .quiz-opt:hover:not(:disabled) { background:rgba(60,80,220,.6); border-color:rgba(255,229,102,.5); transform:translateY(-2px); box-shadow:0 6px 0 rgba(0,0,0,.4); }
+  .quiz-opt.correct { background:rgba(20,120,60,.7); border-color:#50dc82; color:#a0ffc0; box-shadow:0 4px 0 #0a5020; }
+  .quiz-opt.wrong { background:rgba(140,20,20,.7); border-color:#ff6060; color:#ffaaaa; box-shadow:0 4px 0 #5a0000; }
+  .quiz-opt:disabled { cursor:default; transform:none; }
+  .quiz-result { text-align:center; font-family:var(--fd); font-size:1.15rem; min-height:1.5rem;
+    text-shadow:0 2px 6px rgba(0,0,0,.5); }
+  .quiz-result.ok { color:#50ff90; }
+  .quiz-result.no { color:#ff8080; }
+  .quiz-next { min-height:50px; border-radius:14px; border:3px solid rgba(255,229,102,.4);
+    background:rgba(80,60,10,.75); color:var(--my); font-family:var(--fd); font-size:1rem;
+    cursor:pointer; transition:all .2s; box-shadow:0 4px 0 #5a4000; }
+  .quiz-next:hover { background:rgba(120,90,10,.85); border-color:var(--my); transform:translateY(-2px); box-shadow:0 6px 0 #3a2800; }
+  .quiz-score { font-size:.82rem; font-weight:900; color:rgba(255,229,102,.7); text-align:center; }
+
+  @keyframes moonBounce { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-7px) rotate(2deg)} }
+  .mbounce { animation:moonBounce 2.5s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Cartoon SVG Background -->
+<div class="sky-bg">
+
+  <!-- Cartoon twinkling stars drawn as SVG -->
+  <svg class="star-field" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <style>
+        .cs { fill: white; }
+        .cs-y { fill: #FFE566; }
+        .cs-b { fill: #aaccff; }
+        @keyframes blink1 { 0%,100%{opacity:.9;r:3} 50%{opacity:.3;r:1.5} }
+        @keyframes blink2 { 0%,100%{opacity:.6;r:2} 50%{opacity:1;r:3.5} }
+        @keyframes blink3 { 0%,100%{opacity:.4} 50%{opacity:.9} }
+        @keyframes spinStar { from{transform-origin:center;transform:rotate(0deg)} to{transform-origin:center;transform:rotate(360deg)} }
+      </style>
+      <!-- 4-point cartoon star shape -->
+      <path id="star4" d="M0,-5 L1.2,-1.2 L5,0 L1.2,1.2 L0,5 L-1.2,1.2 L-5,0 L-1.2,-1.2 Z"/>
+      <!-- 6-point star -->
+      <path id="star6" d="M0,-5 L1,-1.8 L4.3,-2.5 L2,0.5 L4.3,3.5 L1,2 L0,5.5 L-1,2 L-4.3,3.5 L-2,0.5 L-4.3,-2.5 L-1,-1.8 Z"/>
+    </defs>
+
+    <!-- Scattered dot-stars with blink -->
+    <circle cx="15"  cy="20"  r="2.2" class="cs" style="animation:blink1 2.1s ease-in-out infinite"/>
+    <circle cx="55"  cy="10"  r="1.8" class="cs-b" style="animation:blink2 3.2s ease-in-out infinite"/>
+    <circle cx="90"  cy="35"  r="2.5" class="cs-y" style="animation:blink1 1.8s ease-in-out infinite .5s"/>
+    <circle cx="130" cy="8"   r="1.5" class="cs" style="animation:blink3 2.6s ease-in-out infinite"/>
+    <circle cx="170" cy="22"  r="2"   class="cs" style="animation:blink1 3.0s ease-in-out infinite .2s"/>
+    <circle cx="200" cy="12"  r="1.6" class="cs-b" style="animation:blink2 2.4s ease-in-out infinite .8s"/>
+    <circle cx="240" cy="30"  r="2.4" class="cs-y" style="animation:blink1 1.9s ease-in-out infinite .3s"/>
+    <circle cx="280" cy="15"  r="1.9" class="cs" style="animation:blink3 2.8s ease-in-out infinite .6s"/>
+    <circle cx="320" cy="25"  r="2.1" class="cs" style="animation:blink1 2.5s ease-in-out infinite"/>
+    <circle cx="360" cy="10"  r="1.7" class="cs-b" style="animation:blink2 3.1s ease-in-out infinite .4s"/>
+    <circle cx="385" cy="40"  r="2.3" class="cs-y" style="animation:blink1 2.2s ease-in-out infinite .7s"/>
+    <circle cx="35"  cy="55"  r="1.5" class="cs" style="animation:blink3 2.9s ease-in-out infinite .1s"/>
+    <circle cx="75"  cy="70"  r="2"   class="cs-b" style="animation:blink1 2.7s ease-in-out infinite .9s"/>
+    <circle cx="115" cy="50"  r="1.8" class="cs" style="animation:blink2 2.3s ease-in-out infinite"/>
+    <circle cx="155" cy="65"  r="2.2" class="cs-y" style="animation:blink1 1.7s ease-in-out infinite .5s"/>
+    <circle cx="195" cy="48"  r="1.6" class="cs" style="animation:blink3 3.0s ease-in-out infinite .2s"/>
+    <circle cx="235" cy="60"  r="2.0" class="cs-b" style="animation:blink1 2.6s ease-in-out infinite .7s"/>
+    <circle cx="275" cy="45"  r="2.4" class="cs" style="animation:blink2 2.1s ease-in-out infinite .3s"/>
+    <circle cx="315" cy="68"  r="1.7" class="cs-y" style="animation:blink1 2.9s ease-in-out infinite .6s"/>
+    <circle cx="355" cy="55"  r="2.1" class="cs" style="animation:blink3 1.8s ease-in-out infinite"/>
+    <circle cx="10"  cy="90"  r="2.0" class="cs-b" style="animation:blink1 2.4s ease-in-out infinite .4s"/>
+    <circle cx="50"  cy="110" r="1.6" class="cs-y" style="animation:blink2 3.2s ease-in-out infinite .8s"/>
+    <circle cx="390" cy="80"  r="1.9" class="cs" style="animation:blink1 2.0s ease-in-out infinite .2s"/>
+    <circle cx="330" cy="100" r="2.3" class="cs-b" style="animation:blink3 2.7s ease-in-out infinite .5s"/>
+
+    <!-- Cartoon 4-point spiky stars -->
+    <use href="#star4" transform="translate(30,18) scale(0.9)"  class="cs-y" style="animation:blink1 2.3s ease-in-out infinite; opacity:.85"/>
+    <use href="#star4" transform="translate(110,25) scale(1.1)" class="cs"   style="animation:blink2 2.8s ease-in-out infinite .5s; opacity:.7"/>
+    <use href="#star4" transform="translate(190,15) scale(0.8)" class="cs-y" style="animation:blink1 1.9s ease-in-out infinite .3s; opacity:.9"/>
+    <use href="#star4" transform="translate(260,40) scale(1.0)" class="cs"   style="animation:blink3 3.0s ease-in-out infinite .7s; opacity:.75"/>
+    <use href="#star4" transform="translate(340,20) scale(0.9)" class="cs-y" style="animation:blink2 2.5s ease-in-out infinite .1s; opacity:.85"/>
+    <use href="#star4" transform="translate(380,60) scale(0.7)" class="cs"   style="animation:blink1 2.1s ease-in-out infinite .6s; opacity:.7"/>
+    <use href="#star4" transform="translate(70,85)  scale(1.2)" class="cs-y" style="animation:blink2 2.7s ease-in-out infinite .4s; opacity:.8"/>
+    <use href="#star4" transform="translate(300,75) scale(0.8)" class="cs"   style="animation:blink1 3.1s ease-in-out infinite .2s; opacity:.75"/>
+
+    <!-- Cartoon hills (bottom) -->
+    <path d="M-10,300 Q40,195 110,215 Q170,235 220,200 Q280,165 340,205 Q385,225 420,210 L420,300 Z"
+      fill="#0e0a44" stroke="#1a1470" stroke-width="2"/>
+    <path d="M-10,300 Q30,240 80,248 Q130,256 170,235 Q220,218 270,242 Q320,260 380,240 Q410,232 430,245 L430,300 Z"
+      fill="#130d55" stroke="#231880" stroke-width="1.5"/>
+    <!-- Little cartoon houses on hills -->
+    <g transform="translate(45,238)" opacity=".55">
+      <rect x="0" y="6" width="14" height="10" fill="#0a0830" rx="1"/>
+      <polygon points="7,0 -2,8 16,8" fill="#150e50"/>
+      <rect x="5" y="9" width="4" height="7" fill="#1a1270"/>
+    </g>
+    <g transform="translate(340,225)" opacity=".5">
+      <rect x="0" y="6" width="16" height="11" fill="#0a0830" rx="1"/>
+      <polygon points="8,0 -2,8 18,8" fill="#150e50"/>
+      <rect x="6" y="10" width="4" height="7" fill="#1a1270"/>
+    </g>
+    <!-- Stars near horizon -->
+    <circle cx="160" cy="220" r="1.2" class="cs-y" style="animation:blink1 2.5s ease-in-out infinite; opacity:.5"/>
+    <circle cx="230" cy="185" r="1.4" class="cs"   style="animation:blink2 3.0s ease-in-out infinite .4s; opacity:.55"/>
+    <circle cx="295" cy="200" r="1.1" class="cs-b" style="animation:blink3 2.2s ease-in-out infinite .2s; opacity:.45"/>
+  </svg>
+
+  <!-- Cartoon Saturn planet -->
+  <div class="saturn">
+    <svg width="80" height="50" viewBox="0 0 80 50" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="40" cy="30" rx="35" ry="4" fill="none" stroke="#c87050" stroke-width="3" opacity=".7"/>
+      <ellipse cx="40" cy="30" rx="28" ry="4" fill="none" stroke="#e8a070" stroke-width="2" opacity=".5"/>
+      <circle cx="40" cy="25" r="14" fill="#c87840" stroke="#a05820" stroke-width="2.5"/>
+      <ellipse cx="40" cy="25" rx="14" ry="5" fill="#d88a50" opacity=".5"/>
+      <ellipse cx="36" cy="22" rx="5" ry="2.5" fill="#e8a060" opacity=".3"/>
+    </svg>
+  </div>
+
+  <!-- Cartoon comet -->
+  <div class="comet">
+    <svg width="120" height="30" viewBox="0 0 120 30" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="white" stop-opacity="0"/>
+          <stop offset="100%" stop-color="white" stop-opacity=".85"/>
+        </linearGradient>
+      </defs>
+      <path d="M0,15 Q60,8 110,15 Q60,22 0,15 Z" fill="url(#cg)" opacity=".6"/>
+      <circle cx="112" cy="15" r="5" fill="white" opacity=".9"/>
+      <circle cx="112" cy="15" r="8" fill="white" opacity=".25"/>
+    </svg>
+  </div>
+
+  <!-- Cartoon clouds -->
+  <div class="cloud" style="width:180px;height:40px;top:12%;left:-200px;--cd:55s;animation-delay:0s;"></div>
+  <div class="cloud" style="width:120px;height:28px;top:28%;left:-150px;--cd:70s;animation-delay:20s;opacity:.6;"></div>
+  <div class="cloud" style="width:200px;height:45px;top:5%;left:-250px;--cd:80s;animation-delay:35s;"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="text/babel">
+const {useState} = React;
+
+const PHASES = [
+  {name:"New Moon",       emoji:"🌑",illum:0,  desc:"The Moon is hiding! We can't see it tonight. 🙈",type:"none",
+   fact:"The Moon is between Earth and the Sun — the lit side faces away from us!",days:"Day 1",sky:"Invisible 👻"},
+  {name:"Waxing Crescent",emoji:"🌒",illum:25, desc:"A tiny silver sliver is GROWING bigger! 🌱",type:"wax",
+   fact:"Only a small curved slice of the Moon is lit by the Sun.",days:"Day 3–6",sky:"Sets after sunset 🌅"},
+  {name:"First Quarter",  emoji:"🌓",illum:50, desc:"Half the Moon glows! Growing towards full! ✂️",type:"wax",
+   fact:"The Moon has traveled ¼ of its orbit around Earth.",days:"Day 7–8",sky:"High at sunset 🌇"},
+  {name:"Waxing Gibbous", emoji:"🌔",illum:75, desc:"Almost full! Getting BIGGER and BRIGHTER! ✨",type:"wax",
+   fact:"More than half is lit — almost there! Just a few more days!",days:"Day 10–13",sky:"Rises before sunset 🌤"},
+  {name:"Full Moon",      emoji:"🌕",illum:100,desc:"WOW! The WHOLE Moon is shining! Hooray! 🎉",type:"none",
+   fact:"Earth is between the Sun and Moon — we see the completely lit face!",days:"Day 14–15",sky:"Rises at sunset 🌆"},
+  {name:"Waning Gibbous", emoji:"🌖",illum:75, desc:"Slowly getting smaller now… it's SHRINKING! 🍂",type:"wan",
+   fact:"The lit side is shrinking — the Moon is moving past full.",days:"Day 16–19",sky:"Rises after sunset 🌃"},
+  {name:"Last Quarter",   emoji:"🌗",illum:50, desc:"Half lit again — but the OTHER half! 🔄",type:"wan",
+   fact:"The Moon has now traveled ¾ of its orbit around Earth.",days:"Day 22–23",sky:"High at midnight 🌙"},
+  {name:"Waning Crescent",emoji:"🌘",illum:25, desc:"Just a tiny sliver left… back to sleep soon! 😴",type:"wan",
+   fact:"Almost gone! In a couple of days it'll be New Moon again.",days:"Day 25–27",sky:"Rises before sunrise 🌄"},
+];
+
+const QUIZ_POOL = [
+  {q:"Which phase shows the WHOLE Moon lit up?",a:4,opts:[0,2,4,6]},
+  {q:"Which phase is when the Moon is HIDDEN?",a:0,opts:[0,1,3,5]},
+  {q:"WAXING means the Moon is…",a:"growing",opts:["growing","shrinking","hiding","spinning"],isText:true},
+  {q:"WANING means the Moon is…",a:"shrinking",opts:["growing","shrinking","flying away","turning red"],isText:true},
+  {q:"Which phase comes right after New Moon?",a:1,opts:[1,2,6,7]},
+  {q:"Which phase comes right before Full Moon?",a:3,opts:[2,3,5,6]},
+  {q:"How many main Moon phases are there?",a:"8",opts:["4","6","8","12"],isText:true},
+  {q:"First Quarter Moon is… lit up",a:"50%",opts:["25%","50%","75%","100%"],isText:true},
+];
+
+function CartoonMoon({phaseIdx, southern}) {
+  const S=220, cx=110, cy=110, r=95;
+  const illums=[0,.25,.5,.75,1,.75,.5,.25];
+  const f=illums[phaseIdx];
+  const showFull=phaseIdx!==0;
+  const angle=Math.acos(2*f-1);
+  const termRx=Math.abs(Math.cos(angle))*r;
+  let shadowPath=null;
+  if(phaseIdx===0){
+    shadowPath=`M ${cx-r} ${cy} a ${r} ${r} 0 1 1 ${r*2} 0 a ${r} ${r} 0 1 1 ${-r*2} 0`;
+  } else if(phaseIdx!==4){
+    let isWax=phaseIdx<4;
+    if(southern) isWax=!isWax;
+    const bow=Math.cos(angle);
+    if(isWax){
+      shadowPath=`M ${cx} ${cy-r} A ${r} ${r} 0 0 0 ${cx} ${cy+r} A ${termRx} ${r} 0 0 ${bow>=0?1:0} ${cx} ${cy-r} Z`;
+    } else {
+      const bow2=-Math.cos(angle);
+      shadowPath=`M ${cx} ${cy-r} A ${r} ${r} 0 0 1 ${cx} ${cy+r} A ${termRx} ${r} 0 0 ${bow2>=0?0:1} ${cx} ${cy-r} Z`;
+    }
+  }
+  const craters=[
+    {cx:68,cy:75,rx:14,ry:11},{cx:140,cy:60,rx:11,ry:9},{cx:155,cy:130,rx:15,ry:12},
+    {cx:85,cy:145,rx:10,ry:8},{cx:115,cy:105,rx:8,ry:6},{cx:60,cy:120,rx:7,ry:5},{cx:130,cy:165,rx:8,ry:6},
+  ];
+  return (
+    <svg viewBox={`0 0 ${S} ${S}`} xmlns="http://www.w3.org/2000/svg" className="moon-svg"
+      style={{filter:'drop-shadow(0 0 30px rgba(255,220,80,0.55)) drop-shadow(0 8px 0 rgba(160,100,0,0.6))'}}>
+      <defs>
+        <radialGradient id="mg3" cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stopColor="#FFFDE0"/>
+          <stop offset="50%" stopColor="#FFE566"/>
+          <stop offset="100%" stopColor="#EDB800"/>
+        </radialGradient>
+        <radialGradient id="dg3" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#090430" stopOpacity=".88"/>
+          <stop offset="100%" stopColor="#04021a" stopOpacity=".97"/>
+        </radialGradient>
+        <clipPath id="mc3"><circle cx={cx} cy={cy} r={r}/></clipPath>
+      </defs>
+      {/* Cartoon thick black outline */}
+      <circle cx={cx} cy={cy} r={r+5} fill={showFull?"#a06800":"#0c0840"}/>
+      <circle cx={cx} cy={cy} r={r} fill={showFull?"url(#mg3)":"#140b48"}/>
+      {showFull && (
+        <g clipPath="url(#mc3)">
+          {craters.map((c,i)=>(
+            <g key={i}>
+              {/* Cartoon crater: thick outline + shaded bowl + shine dot */}
+              <ellipse cx={c.cx} cy={c.cy} rx={c.rx+2} ry={c.ry+1.5} fill="#9a7000"/>
+              <ellipse cx={c.cx} cy={c.cy} rx={c.rx} ry={c.ry} fill="#C89500"/>
+              <ellipse cx={c.cx-1} cy={c.cy+1} rx={c.rx*.75} ry={c.ry*.7} fill="#B07800" opacity=".7"/>
+              <ellipse cx={c.cx+c.rx*.4} cy={c.cy-c.ry*.35} rx={c.rx*.28} ry={c.ry*.24} fill="#FFF5A0" opacity=".75"/>
+            </g>
+          ))}
+          {/* Surface highlight blob */}
+          <ellipse cx="82" cy="70" rx="24" ry="16" fill="white" fillOpacity=".14" transform="rotate(-18,110,110)"/>
+          {/* Cartoon eyebrow on full moon */}
+          {phaseIdx===4 && <path d="M 72 72 Q 95 60 118 72" fill="none" stroke="#9a7000" strokeWidth="4" strokeLinecap="round"/>}
+        </g>
+      )}
+      {/* Bold cartoon outline ring */}
+      {showFull && <circle cx={cx} cy={cy} r={r} fill="none" stroke="#8a6000" strokeWidth="4"/>}
+      {shadowPath && <path d={shadowPath} fill="url(#dg3)" clipPath="url(#mc3)"/>}
+      {phaseIdx===0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="#2a1870" strokeWidth="3" strokeOpacity=".7"/>}
+    </svg>
+  );
+}
+
+function FactTab({phase}) {
+  return (
+    <div className="fact-card panel">
+      <div className="fact-title">{phase.emoji} {phase.name}</div>
+      <div className="fact-body" style={{marginBottom:'10px'}}>{phase.fact}</div>
+      <div className="fact-grid">
+        <div className="fact-item"><span className="fact-icon">📅</span><span className="fact-val">{phase.days}</span><span className="fact-lbl">In the Cycle</span></div>
+        <div className="fact-item"><span className="fact-icon">🌌</span><span className="fact-val" style={{fontSize:'.8rem'}}>{phase.sky}</span><span className="fact-lbl">In the Sky</span></div>
+        <div className="fact-item"><span className="fact-icon">☀️</span><span className="fact-val">{phase.illum}%</span><span className="fact-lbl">Lit by Sun</span></div>
+        <div className="fact-item">
+          <span className="fact-icon">{phase.type==='wax'?'📈':phase.type==='wan'?'📉':'🔄'}</span>
+          <span className="fact-val" style={{fontSize:'.82rem'}}>{phase.type==='wax'?'Waxing':phase.type==='wan'?'Waning':'Special'}</span>
+          <span className="fact-lbl">Phase Type</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuizTab() {
+  const [qIdx,setQIdx]=useState(()=>Math.floor(Math.random()*QUIZ_POOL.length));
+  const [chosen,setChosen]=useState(null);
+  const [score,setScore]=useState({right:0,total:0});
+  const q=QUIZ_POOL[qIdx];
+  const isCorrect=(opt)=>opt===q.a;
+  const handle=(opt)=>{
+    if(chosen!==null) return;
+    setChosen(opt);
+    setScore(s=>({right:s.right+(isCorrect(opt)?1:0),total:s.total+1}));
+  };
+  const next=()=>{
+    let ni; do{ni=Math.floor(Math.random()*QUIZ_POOL.length);}while(ni===qIdx);
+    setQIdx(ni); setChosen(null);
+  };
+  const getLabel=(opt)=>q.isText?opt:PHASES[opt].emoji+' '+PHASES[opt].name;
+  const cls=(opt)=>{
+    if(chosen===null) return 'quiz-opt';
+    if(isCorrect(opt)) return 'quiz-opt correct';
+    if(opt===chosen) return 'quiz-opt wrong';
+    return 'quiz-opt';
+  };
+  return (
+    <div className="quiz-card panel">
+      <div className="quiz-score">⭐ {score.right} / {score.total} correct</div>
+      <div className="quiz-q">{q.q}</div>
+      <div className="quiz-opts">
+        {q.opts.map((opt,i)=>(
+          <button key={i} className={cls(opt)} onClick={()=>handle(opt)} disabled={chosen!==null}>{getLabel(opt)}</button>
+        ))}
+      </div>
+      {chosen!==null && (
+        <div className={`quiz-result ${isCorrect(chosen)?'ok':'no'}`}>
+          {isCorrect(chosen)?'🌟 Great job! Correct!':'❌ Not quite — try the next one!'}
+        </div>
+      )}
+      {chosen!==null && <button className="quiz-next" onClick={next}>Next Question ➡️</button>}
+    </div>
+  );
+}
+
+function App() {
+  const [pi,setPi]=useState(4);
+  const [south,setSouth]=useState(false);
+  const [tab,setTab]=useState('explore');
+  const phase=PHASES[pi];
+  const isWax=phase.type==='wax', isWan=phase.type==='wan';
+  return (
+    <div id="root" style={{display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'}}>
+      <div className="scroll-area">
+        <div className="inner">
+          <div className="title-row">
+            <h1>🌙 Moon Phase Explorer</h1>
+            <p>Learn the 8 phases of the Moon! ✨</p>
+          </div>
+
+          <div className="tabs">
+            <button className={`tab-btn ${tab==='explore'?'on':''}`} onClick={()=>setTab('explore')}>🔭 Explore</button>
+            <button className={`tab-btn ${tab==='facts'?'on':''}`} onClick={()=>setTab('facts')}>📖 Facts</button>
+            <button className={`tab-btn ${tab==='quiz'?'on':''}`} onClick={()=>setTab('quiz')}>🎮 Quiz!</button>
+          </div>
+
+          {tab!=='quiz' && (
+            <>
+              <div className="hemi-row panel">
+                <span className="hemi-label">🌍</span>
+                <span className="hemi-label" style={{color:!south?'white':'rgba(255,255,255,.35)',fontSize:'.82rem'}}>North</span>
+                <div className={`toggle-track ${south?'on':''}`} onClick={()=>setSouth(p=>!p)}
+                  role="switch" aria-checked={south} tabIndex={0} onKeyDown={e=>e.key===' '&&setSouth(p=>!p)}>
+                  <div className="toggle-thumb">🌏</div>
+                </div>
+                <span className="hemi-label" style={{color:south?'white':'rgba(255,255,255,.35)',fontSize:'.82rem'}}>South</span>
+              </div>
+
+              <div className="badge-row">
+                <div className={`pbadge wax ${isWax?'on':''}`}>📈 Waxing<span className="bsub">Growing Bigger</span></div>
+                <div className={`pbadge wan ${isWan?'on':''}`}>📉 Waning<span className="bsub">Getting Smaller</span></div>
+              </div>
+
+              <div className="moon-stage">
+                <div className="moon-name">{phase.emoji} {phase.name}</div>
+                <div className="moon-wrap">
+                  <div className="moon-glow" style={{opacity:phase.illum/100*.75+.18}}/>
+                  <div className={pi===4?'mbounce':''} style={{width:'100%',height:'100%'}}>
+                    <CartoonMoon phaseIdx={pi} southern={south}/>
+                  </div>
+                </div>
+                <div className="phase-desc panel">{phase.desc}</div>
+              </div>
+
+              <div className="illum-row">
+                <span className="illum-lbl">☀️ Sunlight on Moon</span>
+                <div className="illum-outer"><div className="illum-inner" style={{width:phase.illum+'%'}}/></div>
+                <span className="illum-pct">{phase.illum}% lit</span>
+              </div>
+
+              <div className="slider-sec">
+                <span className="slider-hint">👆 Slide or tap to change the Moon!</span>
+                <input type="range" min={0} max={7} step={1} value={pi}
+                  onChange={e=>setPi(Number(e.target.value))} aria-label="Moon phase selector"/>
+              </div>
+
+              <div className="phase-dots">
+                {PHASES.map((p,i)=>(
+                  <button key={i} className={`pdot ${i===pi?'on':''}`} onClick={()=>setPi(i)} aria-label={p.name}>
+                    <span className="pdot-ic">{p.emoji}</span>
+                    <span style={{fontSize:'.56rem',lineHeight:1.2}}>{p.name.replace(' Moon','').replace(' Quarter',' Q')}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {tab==='facts' && <FactTab phase={phase}/>}
+          {tab==='quiz' && <QuizTab/>}
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.render(<App/>, document.getElementById('root'));
+</script>
+</body>
+</html>
